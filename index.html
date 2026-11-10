@@ -1250,12 +1250,12 @@ const M=Roadmap,LIB=Library,X=Exporters;
 const $=s=>document.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon=(n,cls='ico')=>`<svg class="${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
-const APP_VERSION='3.3.0';
+const APP_VERSION='3.4.0';
 const KEY='content-werkstatt-v3',KEY2='content-werkstatt-v2',KEY1='content-werkstatt-v1',UIKEY='content-werkstatt-ui';
 const VIEWS={start:'Start',uebersicht:'Übersicht',roadmap:'Roadmap',recherche:'Recherche',notizen:'Notizen',manuskript:'Manuskript',methoden:'Methoden',bibliothek:'Wissensbibliothek',export:'Export'};
 const COLORS=[['sand','Sand'],['olive','Oliv'],['clay','Ton'],['slate','Schiefer'],['rose','Rosé']];
 const NOTE_KINDS=['Notiz','Idee','Zitat','Beobachtung','Frage','Geschichte','Beispiel'];
-const SOURCE_TYPES=['Artikel','Buch','Studie','Website','Video','Podcast','Gespräch','Eigene Erfahrung','Anderes'];
+const SOURCE_TYPES=['Artikel','Buch','Kommentar','Bibelstelle','Wortstudie','Exegese','Studie','Website','Video','Podcast','Gespräch','Eigene Erfahrung','Anderes'];
 const RATINGS=['ungeprüft','verlässlich','zu prüfen','nur Meinung'];
 const FORMATS=['Artikel','Vortrag','Präsentation','Predigt','Workshop','Social Media','Newsletter','Anderes Format'];
 const legacyColor=c=>({yellow:'sand',green:'olive'}[c]||c||'sand');
@@ -1501,7 +1501,7 @@ function vResearch(){const p=project;
  <section class="panel"><div class="panel-head"><h3>Argumente ohne Beleg</h3></div>${(()=>{const a=allCards(c=>c.role==='argument'&&M.value(project,c).trim()&&!p.sources.some(s=>s.links.includes(c.id)));return a.length?`<ul class="mini-list">${a.map(x=>`<li><span><b>${esc(groupName(x.g))}</b><br><span class="muted">${esc(M.value(project,x.c).slice(0,90))}</span></span></li>`).join('')}</ul>`:'<div class="empty">Alle ausgefüllten Argumente haben eine Quelle oder es gibt noch keine.</div>'})()}</section></div></div>`}
 function sourceHtml(s,i){const f=(k,label,ph,type='text')=>`<label class="field"><span>${label}</span><input class="input" id="s-${k}-${s.id}" type="${type}" data-src="${s.id}" data-key="${k}" value="${esc(s[k])}" placeholder="${esc(ph)}"></label>`;
  return`<article class="source" data-source="${s.id}"><div class="src-head"><span class="src-num">[${i+1}]</span><input class="input" id="s-title-${s.id}" data-src="${s.id}" data-key="title" value="${esc(s.title)}" placeholder="Titel der Quelle" aria-label="Titel"><button class="icon-btn" type="button" data-act="del-source" data-id="${s.id}" aria-label="Quelle löschen">${icon('trash')}</button></div>
- <div class="grid-3">${f('author','Autor / Herausgeber','Nachname, Vorname')}${f('year','Jahr','2026')}<label class="field"><span>Art</span><select class="select" id="s-type-${s.id}" data-src="${s.id}" data-key="type">${SOURCE_TYPES.map(t=>`<option${t===s.type?' selected':''}>${t}</option>`).join('')}</select></label><label class="field"><span>Einschätzung</span><select class="select" id="s-rating-${s.id}" data-src="${s.id}" data-key="rating">${RATINGS.map(t=>`<option${t===s.rating?' selected':''}>${t}</option>`).join('')}</select></label></div>
+ <div class="grid-3">${f('author','Autor / Herausgeber','Nachname, Vorname')}${f('year','Jahr','2026')}<label class="field"><span>Art</span><select class="select" id="s-type-${s.id}" data-src="${s.id}" data-key="type">${SOURCE_TYPES.includes(s.type)||!s.type?'':`<option selected>${esc(s.type)}</option>`}${SOURCE_TYPES.map(t=>`<option${t===s.type?' selected':''}>${t}</option>`).join('')}</select></label><label class="field"><span>Einschätzung</span><select class="select" id="s-rating-${s.id}" data-src="${s.id}" data-key="rating">${RATINGS.map(t=>`<option${t===s.rating?' selected':''}>${t}</option>`).join('')}</select></label></div>
  ${f('url','Link','https://','url')}${s.url&&/^https?:\/\//.test(s.url)?`<a href="${esc(s.url)}" target="_blank" rel="noopener" style="font-size:.8rem">Link öffnen ↗</a>`:''}
  <label class="field"><span>Zitat oder Kernaussage</span><textarea class="textarea" id="s-quote-${s.id}" data-auto data-src="${s.id}" data-key="quote" rows="2" placeholder="Was genau stützt dein Argument?">${esc(s.quote)}</textarea></label>
  <label class="field"><span>Eigene Notiz</span><textarea class="textarea" id="s-notes-${s.id}" data-auto data-src="${s.id}" data-key="notes" rows="2" placeholder="Seite, Kontext, Zweifel …">${esc(s.notes)}</textarea></label>
@@ -1576,7 +1576,9 @@ function backupAll(){const stamp=new Date().toISOString().slice(0,10);download(`
 async function importFile(file){try{if(file.size>30e6)throw Error('groß');const raw=JSON.parse(await file.text());let list=[];
  if(Array.isArray(raw.projects))list=raw.projects;else if(raw.project&&[1,2,3].includes(raw.version))list=[raw.project];else throw Error('Format');
  const imported=list.map(p=>{const m=normalize(p);if(!M.validate(m))throw Error('ungültig');return m});
- mutate(()=>{for(const p of imported){const copy=data.projects.some(x=>x.id===p.id)||data.trash.some(x=>x.id===p.id)?Object.assign(M.duplicate(p),{title:p.title}):p;data.projects.push(copy);dirty.add(copy.id);project=copy}data.selected=project.id},`${imported.length} Projekt${imported.length>1?'e':''} importiert`)}
+ const fmap={},fnew=[];if(Array.isArray(raw.folders))for(const f of raw.folders){if(!f||typeof f.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(f.id)||typeof f.name!=='string'||!f.name.trim())continue;const ex=data.folders.find(x=>x.id===f.id)||data.folders.find(x=>x.name===f.name.trim());if(ex)fmap[f.id]=ex.id;else{fnew.push({id:f.id,name:f.name.trim().slice(0,120)});fmap[f.id]=f.id}}
+ for(const p of imported)if(p.folder)p.folder=fmap[p.folder]||(data.folders.some(x=>x.id===p.folder)?p.folder:'');
+ mutate(()=>{if(fnew.length){data.folders.push(...fnew);touchFolders()}for(const p of imported){const copy=data.projects.some(x=>x.id===p.id)||data.trash.some(x=>x.id===p.id)?Object.assign(M.duplicate(p),{title:p.title}):p;data.projects.push(copy);dirty.add(copy.id);project=copy}data.selected=project.id},`${imported.length} Projekt${imported.length>1?'e':''} importiert`+(fnew.length?` · Ordner „${fnew.map(f=>f.name).join('“, „')}“ angelegt`:''))}
  catch(e){toast('Diese Datei ist keine gültige Sicherung der Content Werkstatt.')}}
 
 /* ── Dialoge & Menüs ───────────────────────────────────── */
