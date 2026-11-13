@@ -519,6 +519,25 @@ body.presenting{overflow:hidden}
 @media (max-width:520px){.ptable th:nth-child(4),.ptable td:nth-child(4){display:none}}
 @media (max-width:860px){.toast{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
 
+/* ── 3.5: Zielgruppen im Aufruf ───────────────────────── */
+.ctx{border-radius:8px;background:var(--surface-2);border:1px solid var(--line);padding:8px 10px;font-size:.84rem}
+.ctx summary{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--olive-2);font-weight:600;list-style:none}
+.ctx summary::-webkit-details-marker{display:none}
+.ctx summary .ico{width:15px;height:15px;color:var(--olive-2)}
+.ctx summary .mono{color:var(--muted)}
+.ctx dl{display:grid;gap:2px 0;margin:8px 0 4px}
+.ctx dt{font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.ctx dd{margin:0;color:var(--text-2);line-height:1.45}
+.ctx-jumps{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.ctx-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;background:var(--olive-soft)}
+.ctx-chips .g-kind{width:100%;color:var(--olive-2)}
+.ctx-link{display:flex;align-items:flex-start;gap:6px;width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--muted);font-size:.8rem;text-align:left}
+.ctx-link .ico{width:15px;height:15px;color:var(--olive-2);flex:none;margin-top:1px}
+.ctx-link b{color:var(--text-2);font-weight:600}
+.ctx-link:hover{border-color:var(--olive);color:var(--text)}
+.group.cta{border-color:color-mix(in srgb,var(--clay) 45%,var(--line))}
+.group.flash{box-shadow:0 0 0 2px var(--olive),var(--shadow);transition:box-shadow .3s}
+
 </style>
 </head>
 <body>
@@ -614,7 +633,11 @@ function addAudience(p,index){const entity=uid(),n=groups(p,'audience').filter(g
  card('Zielgruppe','Wer gehört zu dieser Gruppe?','',{role:'audience-name'}),card('Allgemeine Handlung','Warum sind sie hier? Nutze weiche Verben.'),card('Spezifische Handlung','Was sollen sie am Ende konkret tun? Nutze harte Verben.')],{entity});
  const a=group('Zielgruppe '+n,'audience',[
  card('Profil','Stärken, Schwächen und relevante Details.'),card('Emotionale Themen','Haltung zu dir, Thema, Unternehmen / Ort: dafür (+), neutral (Δ), dagegen (−).'),card('Was möchten sie wissen?','Interessen und Fragen dieser Gruppe.'),card('Was müssen sie wissen?','Was brauchen sie, um handeln zu können?'),card('Wissensstand','Was wissen sie bereits?'),card('Schlüsselpunkte für diese Gruppe','Ein Gedanke pro Zeile. Wird automatisch als Hauptpunkte übernommen. Ein Punkt pro Zeile.','',{role:'audience-keys'})],{entity});
- const pos=groups(p,'audience').findIndex(g=>g.kind==='shared-keys');groups(p,'audience').splice(index??(pos<0?groups(p,'audience').length:pos),0,a);const goal=groups(p,'strategy').findIndex(g=>g.kind==='goal');groups(p,'strategy').splice(goal<0?groups(p,'strategy').length:goal,0,s);return a}
+ const pos=groups(p,'audience').findIndex(g=>g.kind==='shared-keys');groups(p,'audience').splice(index??(pos<0?groups(p,'audience').length:pos),0,a);const goal=groups(p,'strategy').findIndex(g=>g.kind==='goal');groups(p,'strategy').splice(goal<0?groups(p,'strategy').length:goal,0,s);addAudienceCta(p,s);return a}
+/* Aufruf je Zielgruppe im Wegweiser: übernimmt die spezifische Handlung aus der Strategie. */
+function addAudienceCta(p,s){const route=groups(p,'route');if(route.some(g=>g.kind==='route-audience'&&g.entity===s.entity))return null;const act=s.cards.find(c=>c.title==='Spezifische Handlung')||s.cards[2];
+ const g=group(s.title.replace(/^Zielgruppe/,'Aufruf an Zielgruppe'),'route-audience',[card('Spezifische Handlung','Übernimmt die Handlung aus der Strategie, bis du hier eigenen Text schreibst.','',{role:'cta-action',...(act?{source:act.id}:{})}),card('Aufruf in deinen Worten','Wie sprichst du diese Gruppe am Schluss direkt an? Mit harten Verben.','',{role:'cta-words',color:'green'}),card('Nutzen für diese Gruppe','Was gewinnt diese Gruppe, wenn sie handelt?','',{role:'cta-benefit'})],{entity:s.entity});
+ let at=-1;route.forEach((x,i)=>{if(x.kind==='closing'||x.kind==='route-audience')at=i});route.splice(at<0?route.length:at+1,0,g);return g}
 function addPoint(p,index,sourceId){const entity=uid(),points=groups(p,'body').filter(g=>g.kind==='point'),n=points.length+1;let shared=groups(p,'audience').find(g=>g.kind==='shared-keys');if(!shared){shared=group('Gemeinsame Schlüsselpunkte','shared-keys',[]);groups(p,'audience').push(shared)}
  let src=sourceId?findCard(p,sourceId)?.card:null;
  if(!src){src=card('Schlüsselpunkt '+n,'Was ist die zentrale Botschaft dieses Punktes?','',{role:'shared-key',entity});const at=index==null?shared.cards.length:Math.min(index,shared.cards.length);shared.cards.splice(at,0,src)}
@@ -649,7 +672,7 @@ function validate(p){if(!p||![2,3].includes(p.schema)||typeof p.title!=='string'
 
 /* Vorlagen für neue Gruppen. special: 'audience' / 'point' nutzen die verknüpften Bausteine. */
 const TEMPLATES=[
- {id:'audience',name:'Zielgruppe',desc:'Neue Zielgruppe mit Handlungen (Strategie) und Zuhörerbewertung. Beide Teile bleiben verbunden.',phases:['strategy','audience'],special:'audience',lib:'zuhoererbewertung',preview:['Zielgruppe','Allgemeine Handlung','Spezifische Handlung','Profil','Emotionale Themen','…']},
+ {id:'audience',name:'Zielgruppe',desc:'Neue Zielgruppe mit Handlungen (Strategie), Zuhörerbewertung und eigenem Aufruf im Wegweiser. Alle Teile bleiben verbunden.',phases:['strategy','audience','route'],special:'audience',lib:'zuhoererbewertung',preview:['Zielgruppe','Allgemeine Handlung','Spezifische Handlung','Profil','Emotionale Themen','…']},
  {id:'point',name:'Hauptpunkt',desc:'Hauptpunkt mit drei Argumenten, dazu Schlüsselpunkt und Station im Wegweiser.',phases:['body','route'],special:'point',lib:'hauptteil',preview:['Hauptpunkt','Argument 1','Argument 2','Argument 3']},
  {id:'core',name:'Kernbotschaft',desc:'Der eine Satz, der hängen bleiben soll, und wo er wiederkommt.',phases:['strategy'],lib:'wiederholung',cards:[['Kernbotschaft in einem Satz','Was soll jeder am Ende wiedergeben können?'],['Warum jetzt?','Was macht das Thema gerade dringend?'],['Wiederholungen','Wo taucht die Kernbotschaft auf? Einstieg, Vorschau, nach jedem Punkt, Rückblick, Schluss.']]},
  {id:'goal-measure',name:'Messbares Ziel',desc:'Woran du nach dem Auftritt oder Artikel erkennst, dass er gewirkt hat.',phases:['strategy'],lib:'strategie',cards:[['Ziel','Was soll sich konkret verändern?'],['Woran erkenne ich Erfolg?','Anmeldungen, Rückfragen, Entscheidungen …'],['Bis wann?','Zeitpunkt der Überprüfung']]},
@@ -668,12 +691,12 @@ const TEMPLATES=[
  {id:'empty',name:'Leere Gruppe',desc:'Eine Gruppe ohne Vorgaben. Titel und Post-its bestimmst du selbst.',phases:[],cards:[['Eigenes Post-it','Gedanken, Beispiel, Quelle …']]}
 ];
 function addTemplate(p,phase,index,tid,title){const t=TEMPLATES.find(x=>x.id===tid);if(!t)return null;const list=groups(p,phase);index=Math.max(0,Math.min(index??list.length,list.length));
- if(t.special==='audience'){if(phase==='audience')return addAudience(p,index);const a=addAudience(p);const s=list.find(g=>g.entity===a.entity);list.splice(list.indexOf(s),1);list.splice(Math.min(index,list.length),0,s);return s}
+ if(t.special==='audience'){if(phase==='audience')return addAudience(p,index);const a=addAudience(p);const s=list.find(g=>g.entity===a.entity);if(!s)return a;list.splice(list.indexOf(s),1);list.splice(Math.min(index,list.length),0,s);return s}
  if(t.special==='point'){if(phase==='body')return addPoint(p,list.slice(0,index).filter(g=>g.kind==='point').length);const before=list.slice(0,index).filter(g=>g.kind==='route-point').length;const g=addPoint(p,before);return list.find(x=>x.entity===g.entity)}
  const g=group(title||t.name,'custom',t.cards.map(([ti,hi])=>card(ti,hi||'','',{color:'sand'})),{template:t.id});list.splice(index,0,g);return g}
 
 const STATUS=['Idee','Recherche','Struktur','Entwurf','Feinschliff','Fertig'];
-function ensureExtras(p){p.schema=3;p.status=STATUS.includes(p.status)?p.status:'Idee';p.tags=Array.isArray(p.tags)?p.tags:[];p.summary=typeof p.summary==='string'?p.summary:'';p.deadline=typeof p.deadline==='string'?p.deadline:'';p.audienceSize=typeof p.audienceSize==='string'?p.audienceSize:'';p.duration=typeof p.duration==='string'?p.duration:'';p.folder=typeof p.folder==='string'?p.folder:'';p.created=p.created||p.updated||new Date().toISOString();
+function ensureExtras(p){p.schema=3;if(p.phases&&Array.isArray(p.phases.strategy)&&Array.isArray(p.phases.route))for(const s of p.phases.strategy)if(s.kind==='audience-strategy'&&s.entity)addAudienceCta(p,s);p.status=STATUS.includes(p.status)?p.status:'Idee';p.tags=Array.isArray(p.tags)?p.tags:[];p.summary=typeof p.summary==='string'?p.summary:'';p.deadline=typeof p.deadline==='string'?p.deadline:'';p.audienceSize=typeof p.audienceSize==='string'?p.audienceSize:'';p.duration=typeof p.duration==='string'?p.duration:'';p.folder=typeof p.folder==='string'?p.folder:'';p.created=p.created||p.updated||new Date().toISOString();
  for(const k of ['notes','sources','questions','tasks','modules'])p[k]=Array.isArray(p[k])?p[k]:[];
  if(!p.manuscript||typeof p.manuscript.text!=='string')p.manuscript={text:'',updated:null};
  for(const n of p.notes){n.tags=Array.isArray(n.tags)?n.tags:[];n.links=Array.isArray(n.links)?n.links:[];n.title=n.title||'';n.body=n.body||'';n.kind=n.kind||'Notiz'}
@@ -684,7 +707,7 @@ function note(extra={}){const now=new Date().toISOString();return{id:uid(),kind:
 function source(extra={}){return{id:uid(),title:'',author:'',year:'',url:'',type:'Artikel',quote:'',notes:'',rating:'ungeprüft',tags:[],links:[],created:new Date().toISOString(),...extra}}
 function cardsByRole(p,role){return rows(p).map(r=>findCard(p,r.id)).filter(f=>f.card.role===role)}
 function progress(p){const r=rows(p),filled=r.filter(x=>x.value.trim()).length;return{filled,total:r.length,pct:r.length?Math.round(filled/r.length*100):0}}
-const api={TEMPLATES,addTemplate,STATUS,ensureExtras,note,source,cardsByRole,progress,uid,clone,phases,card,group,groups,findGroup,findCard,keyLines,value,edit,relink,addAudience,addPoint,createProject,migrate,syncKeys,removeCard,removeGroup,move,rows,text,csv,duplicate,validate};if(typeof module!=='undefined')module.exports=api;else root.Roadmap=api;
+const api={addAudienceCta,TEMPLATES,addTemplate,STATUS,ensureExtras,note,source,cardsByRole,progress,uid,clone,phases,card,group,groups,findGroup,findCard,keyLines,value,edit,relink,addAudience,addPoint,createProject,migrate,syncKeys,removeCard,removeGroup,move,rows,text,csv,duplicate,validate};if(typeof module!=='undefined')module.exports=api;else root.Roadmap=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 
 </script>
@@ -1041,7 +1064,7 @@ const VARIANTS={
 };
 const SECTIONS={overview:'Auf einen Blick',roadmap:'Roadmap',research:'Recherche',notes:'Notizen',methods:'Methoden',manuscript:'Manuskript'};
 function fmtDate(iso){if(!iso)return'';const d=new Date(iso);if(isNaN(d))return'';return d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'})}
-function groupName(p,g){if(g.kind==='audience'||g.kind==='audience-strategy'){const pair=p.phases.strategy.find(x=>x.entity===g.entity);const n=pair&&pair.cards.find(c=>c.role==='audience-name');const v=n&&M.value(p,n).trim();if(v)return v}if(g.kind==='point'){const t=g.cards.find(c=>c.role==='point-title');const v=t&&M.value(p,t).trim();if(v)return g.title+': '+v}return g.title}
+function groupName(p,g){if(g.kind==='route-audience'){const pair=p.phases.strategy.find(x=>x.entity===g.entity);const n=pair&&pair.cards.find(c=>c.role==='audience-name');const v=n&&M.value(p,n).trim();if(v)return'Aufruf an '+v}if(g.kind==='audience'||g.kind==='audience-strategy'){const pair=p.phases.strategy.find(x=>x.entity===g.entity);const n=pair&&pair.cards.find(c=>c.role==='audience-name');const v=n&&M.value(p,n).trim();if(v)return v}if(g.kind==='point'){const t=g.cards.find(c=>c.role==='point-title');const v=t&&M.value(p,t).trim();if(v)return g.title+': '+v}return g.title}
 function sourceIndex(p){const map=new Map();p.sources.forEach((s,i)=>map.set(s.id,i+1));return map}
 function sourcesFor(p,cardId){return p.sources.filter(s=>s.links.includes(cardId))}
 function cardVal(p,c){return M.value(p,c)}
@@ -1057,10 +1080,11 @@ function parseManuscript(text){const blocks=[];let para=[],list=[];const flush=(
 function draft(p){const out=[];const add=s=>out.push(s);
  const open=p.phases.route.find(g=>g.kind==='opening'),close=p.phases.route.find(g=>g.kind==='closing');
  add('# Einstieg');if(open)for(const c of open.cards){const v=cardVal(p,c).trim();add(v||`[${c.title}: ${c.hint||'noch offen'}]`);add('')}
- for(const g of p.phases.route){if(g.kind==='opening'||g.kind==='closing')continue;
+ for(const g of p.phases.route){if(g.kind==='opening'||g.kind==='closing'||g.kind==='route-audience')continue;
   if(g.kind==='route-point'){const t=byRole(g,'route-title'),body=p.phases.body.find(x=>x.kind==='point'&&x.entity===g.entity);add('# '+((t&&cardVal(p,t).trim())||g.title));const r=byRole(g,'route-content');if(r&&cardVal(p,r).trim())add(cardVal(p,r).trim());if(body)for(const c of body.cards){if(c.role==='point-title')continue;const v=cardVal(p,c).trim();if(v)add('- '+v)}add('');continue}
   add('# '+g.title);for(const c of g.cards){const v=cardVal(p,c).trim();if(v)add(v)}add('')}
  add('# Schluss');if(close)for(const c of close.cards){const v=cardVal(p,c).trim();add(v||`[${c.title}: ${c.hint||'noch offen'}]`);add('')}
+ for(const g of p.phases.route.filter(g=>g.kind==='route-audience')){const vals=g.cards.map(c=>cardVal(p,c).trim());if(!vals.some(Boolean))continue;add('## '+groupName(p,g));const w=byRole(g,'cta-words'),a=byRole(g,'cta-action'),b=byRole(g,'cta-benefit');const words=w&&cardVal(p,w).trim(),act=a&&cardVal(p,a).trim(),ben=b&&cardVal(p,b).trim();add(words||act||'');if(words&&act&&words!==act)add('- Handlung: '+act);if(ben)add('- Nutzen: '+ben);add('')}
  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim()+'\n'}
 function sourceLine(s){return[s.author&&s.author+(s.year?` (${s.year})`:''),s.title||'Ohne Titel',s.type,s.url].filter(Boolean).join(' · ')}
 function build(p,variant='dossier',opt={}){
@@ -1087,11 +1111,13 @@ function build(p,variant='dossier',opt={}){
  if(variant==='talk'){push({type:'note',text:'Lieferplan: Augen finden → Bewegen (Blicken, Bewegen, Pflanzen) → Sprechen → Pause. Sprich nur, wenn du jemandem in die Augen schaust.'});
   const open=p.phases.route.find(g=>g.kind==='opening'),close=p.phases.route.find(g=>g.kind==='closing');
   push({type:'h1',text:'Eröffnung'});if(open)cardsFor(open);
-  let n=0;for(const g of p.phases.route){if(g.kind==='opening'||g.kind==='closing')continue;n++;const t=byRole(g,'route-title');push({type:'h1',text:g.kind==='route-point'?`Punkt ${n}: ${(t&&cardVal(p,t).trim())||g.title}`:g.title});const r=byRole(g,'route-content');if(r&&(cardVal(p,r).trim()||!only))field('So vermittle ich es',cardVal(p,r));for(const c of g.cards){if(c===t||c===r)continue;const v=cardVal(p,c).trim();if(only&&!v)continue;push({type:'field',label:c.title,text:v})}
+  let n=0;for(const g of p.phases.route){if(g.kind==='opening'||g.kind==='closing'||g.kind==='route-audience')continue;n++;const t=byRole(g,'route-title');push({type:'h1',text:g.kind==='route-point'?`Punkt ${n}: ${(t&&cardVal(p,t).trim())||g.title}`:g.title});const r=byRole(g,'route-content');if(r&&(cardVal(p,r).trim()||!only))field('So vermittle ich es',cardVal(p,r));for(const c of g.cards){if(c===t||c===r)continue;const v=cardVal(p,c).trim();if(only&&!v)continue;push({type:'field',label:c.title,text:v})}
    const body=p.phases.body.find(x=>x.kind==='point'&&x.entity===g.entity);if(body){const args=body.cards.filter(c=>c.role!=='point-title').map(c=>{const v=cardVal(p,c).trim();const s=sourcesFor(p,c.id).map(s=>`[${idx.get(s.id)}]`).join(' ');return v?v+(s?' '+s:''):''}).filter(Boolean);if(args.length)push({type:'list',label:'Argumente',items:args})}
    push({type:'p',text:'‖ Pause · Wechsel: Position, Folie oder Frage ans Publikum',muted:true})}
   push({type:'h1',text:'Abschluss'});if(close)cardsFor(close);
-  const aud=p.phases.strategy.filter(g=>g.kind==='audience-strategy');const acts=aud.map(g=>{const name=byRole(g,'audience-name');const a=g.cards.find(c=>c.title==='Spezifische Handlung');return{n:(name&&cardVal(p,name).trim())||g.title,a:a?cardVal(p,a).trim():''}}).filter(x=>x.a||!only);if(acts.length){push({type:'h2',text:'Handlung je Zielgruppe'});push({type:'table',head:['Zielgruppe','Was sie jetzt tun sollen'],rows:acts.map(x=>[x.n,x.a||'noch offen'])})}
+  const ctas=p.phases.route.filter(g=>g.kind==='route-audience').map(g=>{const v=r=>{const c=byRole(g,r);return c?cardVal(p,c).trim():''};const a=p.phases.audience.find(x=>x.entity===g.entity&&x.kind==='audience');const emo=a?cardVal(p,a.cards.find(c=>c.title==='Emotionale Themen')||a.cards[1]).trim():'';return{g,name:groupName(p,g).replace(/^Aufruf an /,''),words:v('cta-words'),act:v('cta-action'),ben:v('cta-benefit'),emo}}).filter(x=>!only||x.words||x.act||x.ben);
+  if(ctas.length){push({type:'h1',text:'Aufruf je Zielgruppe'});push({type:'table',head:['Zielgruppe','Was sie jetzt tun sollen','Nutzen'],rows:ctas.map(x=>[x.name,x.words||x.act||'noch offen',x.ben||'–'])});
+   for(const x of ctas){push({type:'h2',text:x.name});if(x.emo)push({type:'p',text:'Haltung der Gruppe: '+x.emo,muted:true});field('So spreche ich sie an',x.words);field('Spezifische Handlung',x.act);field('Nutzen für diese Gruppe',x.ben)}}
   const delivery=p.modules.map(m=>({m,e:L.byId(m.libId)})).filter(x=>x.e&&x.e.checklist);push({type:'h1',text:'Vor dem Auftritt'});push({type:'checks',items:(delivery.length?delivery.flatMap(x=>x.e.checklist.map((t,i)=>({text:x.e.title+': '+t,done:!!x.m.checks[i]}))):['Raum, Technik und Kleidung geklärt','Erster Satz sitzt','Kernbotschaft steht als ein Satz','Zeit für Fragen eingeplant','Augen – Bewegen – Sprechen – Pause einmal durchgeprobt'].map(t=>({text:t,done:false})))});
   if(p.sources.length){push({type:'h2',text:'Quellen'});push({type:'list',ordered:true,items:p.sources.map(sourceLine)})}}
  return B}
@@ -1250,7 +1276,7 @@ const M=Roadmap,LIB=Library,X=Exporters;
 const $=s=>document.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon=(n,cls='ico')=>`<svg class="${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
-const APP_VERSION='3.4.0';
+const APP_VERSION='3.5.0';
 const KEY='content-werkstatt-v3',KEY2='content-werkstatt-v2',KEY1='content-werkstatt-v1',UIKEY='content-werkstatt-ui';
 const VIEWS={start:'Start',uebersicht:'Übersicht',roadmap:'Roadmap',recherche:'Recherche',notizen:'Notizen',manuskript:'Manuskript',methoden:'Methoden',bibliothek:'Wissensbibliothek',export:'Export'};
 const COLORS=[['sand','Sand'],['olive','Oliv'],['clay','Ton'],['slate','Schiefer'],['rose','Rosé']];
@@ -1318,7 +1344,7 @@ function toast(msg,action){const t=$('#toast');t.innerHTML=`<span>${esc(msg)}</s
 
 /* ── Hilfen ────────────────────────────────────────────── */
 const groupName=g=>X.groupName(project,g);
-const kindLabel={foundation:'Grundlage',goal:'Ziel','audience-strategy':'Zielgruppe',audience:'Zielgruppe','shared-keys':'Schlüsselpunkte',point:'Hauptpunkt','route-point':'Schlüsselpunkt',opening:'Eröffnung',closing:'Abschluss',custom:'Eigene Gruppe'};
+const kindLabel={'route-audience':'Aufruf je Zielgruppe',foundation:'Grundlage',goal:'Ziel','audience-strategy':'Zielgruppe',audience:'Zielgruppe','shared-keys':'Schlüsselpunkte',point:'Hauptpunkt','route-point':'Schlüsselpunkt',opening:'Eröffnung',closing:'Abschluss',custom:'Eigene Gruppe'};
 const tplLabel=g=>{const t=g.template&&M.TEMPLATES.find(x=>x.id===g.template);return t?t.name:null};
 function allCards(filter){const out=[];for(const ph of M.phases)for(const g of project.phases[ph.id])for(const c of g.cards)if(!filter||filter(c,g,ph))out.push({c,g,ph});return out}
 function cardOptions(selected,placeholder='Karte zuordnen …'){let h=`<option value="">${esc(placeholder)}</option>`;for(const ph of M.phases){const gs=project.phases[ph.id];if(!gs.length)continue;h+=`<optgroup label="${esc(ph.name)}">`;for(const g of gs)for(const c of g.cards){const v=M.value(project,c).trim();h+=`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(groupName(g))} → ${esc(c.title)}${v?' · '+esc(v.slice(0,40)):''}</option>`}h+='</optgroup>'}return h}
@@ -1402,6 +1428,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
  switch(a){
  case'open-project':openProject(id,ui.lastProjView||'uebersicht');break;
  case'rail-project':go(ui.lastProjView||'uebersicht');break;
+ case'goto-group':{const f=M.findGroup(project,id);if(!f)break;ui.collapsed.delete(id);ui.expanded.add(id);if(ui.mode==='step'){ui.step=project.phases[f.phase].indexOf(f.group)}go('roadmap',{phase:f.phase});const el=document.querySelector(`[data-group="${id}"]`);if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1600)}break}
  case'start-mode':ui.startMode=b.dataset.v;render();break;case'start-folder':ui.startFolder=b.dataset.v;render();break;
  case'sort':{const k=b.dataset.k;ui.sort=ui.sort.k===k?{k,dir:-ui.sort.dir}:{k,dir:k==='updated'||k==='progress'?-1:1};render();break}
  case'open-folder':go('start',{startFolder:id});break;
@@ -1483,8 +1510,18 @@ function pickTemplate(phase,index){const ph=M.phases.find(x=>x.id===phase);const
  <p class="muted" style="margin:0">Vorlagen bringen passende Post-its mit. Titel und Inhalte kannst du danach frei ändern.</p>
  <div class="eyebrow">Passend für ${esc(ph.name)}</div><div class="tpl-grid">${fit.map(tile).join('')}${tile(empty)}</div>
  <details><summary class="eyebrow" style="cursor:pointer">Weitere Vorlagen</summary><div class="tpl-grid" style="margin-top:10px">${rest.map(tile).join('')}</div></details>`)}
+/* Zielgruppen-Bezug: im Aufruf die Bewertung zeigen, im Abschluss alle Aufrufe verlinken, bei Zielgruppen den Weg zum Aufruf. */
+function audienceParts(entity){const s=project.phases.strategy.find(x=>x.entity===entity&&x.kind==='audience-strategy'),a=project.phases.audience.find(x=>x.entity===entity&&x.kind==='audience'),r=project.phases.route.find(x=>x.entity===entity&&x.kind==='route-audience');return{s,a,r}}
+function ctxHtml(g){
+ if(g.kind==='route-audience'){const {s,a}=audienceParts(g.entity);const items=[];if(s){const gen=s.cards.find(c=>c.title==='Allgemeine Handlung');if(gen&&M.value(project,gen).trim())items.push(['Allgemeine Handlung',M.value(project,gen).trim()])}if(a)for(const c of a.cards){if(c.role==='audience-keys')continue;const v=M.value(project,c).trim();if(v)items.push([c.title,v])}
+  const jump=`<span class="ctx-jumps">${s?`<button class="btn sm ghost" type="button" data-act="goto-group" data-id="${s.id}">Strategie</button>`:''}${a?`<button class="btn sm ghost" type="button" data-act="goto-group" data-id="${a.id}">Zuhörerbewertung</button>`:''}</span>`;
+  return`<details class="ctx"${ui.ctxOpen&&ui.ctxOpen[g.id]===false?'':' open'} data-ctx="${g.id}"><summary>${icon('research')}Über diese Zielgruppe${items.length?` <span class="mono">${items.length}</span>`:''}</summary>${items.length?`<dl>${items.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v).replace(/\n/g,'<br>')}</dd>`).join('')}</dl>`:`<p class="hint" style="margin:6px 0">Noch keine Angaben. Fülle in der Zuhörerbewertung Profil, Haltung und Wissensstand aus, dann siehst du sie hier beim Formulieren des Aufrufs.</p>`}${jump}</details>`}
+ if(g.kind==='closing'){const rs=project.phases.route.filter(x=>x.kind==='route-audience');if(!rs.length)return'';return`<div class="ctx-chips"><span class="g-kind">Aufrufe je Zielgruppe</span>${rs.map(r=>{const done=r.cards.some(c=>(c.role==='cta-words'||c.role==='cta-action')&&M.value(project,c).trim());return`<button class="chip" type="button" data-act="goto-group" data-id="${r.id}" aria-pressed="${done}">${esc(groupName(r).replace(/^Aufruf an /,''))}${done?' ✓':''}</button>`}).join('')}</div>`}
+ if(g.kind==='audience-strategy'||g.kind==='audience'){const {r}=audienceParts(g.entity);if(!r)return'';const w=r.cards.find(c=>c.role==='cta-words');const v=w&&M.value(project,w).trim();return`<button class="ctx-link" type="button" data-act="goto-group" data-id="${r.id}">${icon('right')}<span>Aufruf im Wegweiser${v?': <b>'+esc(v.slice(0,70))+(v.length>70?' …':'')+'</b>':' formulieren'}</span></button>`}
+ return''}
 function groupHtml(g,ph,step=false){const filled=g.cards.filter(c=>M.value(project,c).trim()).length;const col=!step&&ui.collapsed.has(g.id);const q=ui.q.trim().toLowerCase();
- return`<article class="group ${g.kind==='point'?'point':''} ${g.kind==='custom'?'custom':''} ${col?'collapsed':''}" data-group="${g.id}"><div class="g-head"><button class="icon-btn" type="button" data-act="collapse" data-id="${g.id}" aria-label="Ein- oder ausklappen" aria-expanded="${!col}" style="${col?'transform:rotate(-90deg)':''}">${icon('fold')}</button><div style="flex:1;min-width:0"><div class="g-kind">${esc(tplLabel(g)||kindLabel[g.kind]||'Gruppe')}</div><h3 class="g-title" data-group-name="${g.id}">${esc(groupName(g))}</h3></div>${(()=>{const t=g.template&&M.TEMPLATES.find(x=>x.id===g.template);return t&&t.lib?`<button class="icon-btn" type="button" data-act="open-entry" data-id="${t.lib}" title="In der Bibliothek nachlesen" aria-label="In der Bibliothek nachlesen">${icon('book')}</button>`:''})()}<span class="g-count" data-group-count="${g.id}">${filled}/${g.cards.length}</span><button class="icon-btn" type="button" data-act="group-menu" data-id="${g.id}" aria-label="Gruppe bearbeiten">${icon('dots')}</button></div>
+ return`<article class="group ${g.kind==='point'?'point':''} ${g.kind==='route-audience'?'cta':''} ${g.kind==='custom'?'custom':''} ${col?'collapsed':''}" data-group="${g.id}"><div class="g-head"><button class="icon-btn" type="button" data-act="collapse" data-id="${g.id}" aria-label="Ein- oder ausklappen" aria-expanded="${!col}" style="${col?'transform:rotate(-90deg)':''}">${icon('fold')}</button><div style="flex:1;min-width:0"><div class="g-kind">${esc(tplLabel(g)||kindLabel[g.kind]||'Gruppe')}</div><h3 class="g-title" data-group-name="${g.id}">${esc(groupName(g))}</h3></div>${(()=>{const t=g.template&&M.TEMPLATES.find(x=>x.id===g.template);return t&&t.lib?`<button class="icon-btn" type="button" data-act="open-entry" data-id="${t.lib}" title="In der Bibliothek nachlesen" aria-label="In der Bibliothek nachlesen">${icon('book')}</button>`:''})()}<span class="g-count" data-group-count="${g.id}">${filled}/${g.cards.length}</span><button class="icon-btn" type="button" data-act="group-menu" data-id="${g.id}" aria-label="Gruppe bearbeiten">${icon('dots')}</button></div>
+ ${ctxHtml(g)}
  ${(()=>{const show=step||ui.showEmpty||ui.expanded.has(g.id)||!!q;const vis=show?g.cards:g.cards.filter(c=>M.value(project,c).trim());const hid=g.cards.filter(c=>!vis.includes(c));return`<div class="cards">${vis.map(c=>cardHtml(c,g,q)).join('')}</div>${hid.length?`<button class="open-fields" type="button" data-act="expand-group" data-id="${g.id}">${icon('plus')}<span>${hid.length} offene${hid.length===1?'s Feld':' Felder'}: <b>${esc(hid.map(c=>c.title).join(' · '))}</b></span></button>`:''}${ui.expanded.has(g.id)&&!ui.showEmpty&&!step&&g.cards.some(c=>!M.value(project,c).trim())?`<button class="btn sm ghost" type="button" data-act="shrink-group" data-id="${g.id}">Leere einklappen</button>`:''}`})()}
  <div class="g-foot"><button class="btn sm ghost" type="button" data-act="add-card" data-id="${g.id}">${icon('plus')}Post-it</button>${g.kind==='point'?`<button class="btn sm ghost" type="button" data-act="add-arg" data-id="${g.id}">${icon('plus')}Argument</button>`:''}</div></article>`}
 function cardHtml(c,g,q){const v=M.value(project,c);const linked=c.source&&!c.detached,detached=c.source&&c.detached;const src=project.sources.filter(s=>s.links.includes(c.id));const notes=project.notes.filter(n=>n.links.includes(c.id));const match=q&&(v.toLowerCase().includes(q)||c.title.toLowerCase().includes(q));
@@ -1673,6 +1710,7 @@ document.addEventListener('input',e=>{const t=e.target;
  const ai=t.dataset.actInput;if(ai==='rm-search'){ui.q=t.value;$$('.card').forEach(c=>{const id=c.dataset.card,f=M.findCard(project,id);const q=ui.q.trim().toLowerCase();c.classList.toggle('match',!!q&&(M.value(project,f.card).toLowerCase().includes(q)||f.card.title.toLowerCase().includes(q)))});return}
  if(ai==='note-search'||ai==='lib-search'||ai==='start-search'){ui[{'note-search':'noteQ','lib-search':'libQ','start-search':'startQ'}[ai]]=t.value;const pos=t.selectionStart;render();const el=$('#'+t.id);el.focus();el.setSelectionRange(pos,pos);return}});
 function refreshLinked(src){$$('[data-card-input]').forEach(el=>{if(el===src)return;const f=M.findCard(project,el.dataset.cardInput);if(!f)return;const v=M.value(project,f.card);if(el.value!==v){el.value=v;autosize(el)}});$$('[data-group-count]').forEach(el=>{const g=M.findGroup(project,el.dataset.groupCount)?.group;if(g)el.textContent=g.cards.filter(c=>M.value(project,c).trim()).length+'/'+g.cards.length});$$('[data-group-name]').forEach(el=>{const g=M.findGroup(project,el.dataset.groupName)?.group;if(g)el.textContent=groupName(g)})}
+document.addEventListener('toggle',e=>{const d=e.target;if(d.dataset&&d.dataset.ctx){ui.ctxOpen=ui.ctxOpen||{};ui.ctxOpen[d.dataset.ctx]=d.open;saveUI()}},true);
 document.addEventListener('change',e=>{const t=e.target;
  if(t.dataset.cardInput&&t.dataset.sync){delete t.dataset.sync;const f=M.findCard(project,t.dataset.cardInput);const before=project.phases.body.length;edit('',()=>M.syncKeys(project,f.card));if(project.phases.body.length!==before){render();toast('Neue Schlüsselpunkte wurden als Hauptpunkte übernommen')}else refreshLinked(t);return}
  if(t.dataset.actChange==='project-folder'){const p=data.projects.find(x=>x.id===t.dataset.id);if(t.value==='__new'){newFolder(p);return}moveToFolder(p,t.value);return}
